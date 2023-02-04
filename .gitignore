@@ -1,0 +1,9 @@
+# Node
+node_modules
+yarn.lock
+package-lock.json
+
+# Project
+build/
+module/
+circom_output/

@@ -1,0 +1,17 @@
+{
+  "name": "railgun-artifacts",
+  "version": "0.0.1",
+  "description": "Artifacts for Railgun Deployment",
+  "main": "build.js",
+  "scripts": {
+    "build": "node build.js"
+  },
+  "devDependencies": {},
+  "dependencies": {
+    "@noble/hashes": "^1.2.0",
+    "brotli": "^1.3.3",
+    "fs-extra": "^11.1.0",
+    "ipfs-http-client": "^60.0.0",
+    "snarkjs": "^0.5.0"
+  }
+}
