@@ -4,7 +4,9 @@ const snarkJS = require("snarkjs");
 const { keccak_256 } = require("@noble/hashes/sha3");
 const getIPFS = require("./ipfs");
 
-const compressionQuality = 11;
+const compressionQuality = process.env.COMPRESSION_QUALITY
+  ? parseInt(process.env.COMPRESSION_QUALITY)
+  : 11;
 
 const ceremonyOutput = "QmWAySHYhaZqioKi1ufrPJC1n1ZVtHP2w4hLA9XqqJCFne";
 
@@ -255,10 +257,6 @@ async function main() {
 
   console.log("\nBUILDING NPM PACKAGE");
 
-  let requiresString =
-    "const fs = require('fs');\nconst decompress = require('brotli/decompress');";
-  const exportObject = [];
-
   for (let i = 0; i < circuits.length; i += 1) {
     console.log(
       `\nBuilding ${circuits[i].nullifiers}x${circuits[i].commitments}`
@@ -293,91 +291,26 @@ async function main() {
         )
       )
     );
-
-    console.log("Adding to file templates");
-    requiresString += `\nconst zkey${circuits[i].nullifiers}s${circuits[i].commitments} = decompress(fs.readFileSync(\`\${__dirname}/${circuits[i].nullifiers}x${circuits[i].commitments}/zkey.br\`));`;
-    requiresString += `\nconst wasm${circuits[i].nullifiers}s${circuits[i].commitments} = decompress(fs.readFileSync(\`\${__dirname}/${circuits[i].nullifiers}x${circuits[i].commitments}/wasm.br\`));`;
-    requiresString += `\nconst vkey${circuits[i].nullifiers}s${circuits[i].commitments} =require('./${circuits[i].nullifiers}x${circuits[i].commitments}/vkey');`;
-    if (!exportObject[circuits[i].nullifiers]) {
-      exportObject[circuits[i].nullifiers] = [];
-    }
-    exportObject[circuits[i].nullifiers][circuits[i].commitments] = true;
   }
 
-  let exportString = "const exportObject = [\n";
-  let typeString = "[\n";
-
-  for (let nullifiers = 0; nullifiers < exportObject.length; nullifiers += 1) {
-    if (exportObject[nullifiers]) {
-      typeString += "  [\n";
-      exportString += "  [\n";
-
-      for (
-        let commitments = 0;
-        commitments < exportObject[nullifiers].length;
-        commitments += 1
-      ) {
-        if (exportObject[nullifiers][commitments]) {
-          typeString += "    Artifact,\n";
-          exportString += `    {zkey: zkey${nullifiers}s${commitments}, wasm: wasm${nullifiers}s${commitments}, vkey: vkey${nullifiers}s${commitments}},\n`;
-        } else {
-          typeString += "    null,\n";
-          exportString += "    null,\n";
-        }
-      }
-
-      typeString += "  ],\n";
-      exportString += "  ],\n";
-    } else {
-      typeString += "  null,\n";
-      exportString += "  null,\n";
-    }
-  }
-
-  typeString += ']';
-  exportString += '];\n\nmodule.exports = exportObject;';
-
-  const typings = `export type Protocols = 'groth16';
-export type Curves = 'bn128';
-  
-export interface VKey {
-  protocol: Protocols,
-  curve: Curves,
-  nPublic: number,
-  vk_alpha_1: string[],
-  vk_beta_2: string[][],
-  vk_gamma_2: string[][],
-  vk_delta_2: string[][],
-  vk_alphabeta_12: string[][],
-  IC: string[][],
-}
-
-export interface Artifact {
-  zkey: Uint8Array,
-  wasm: Uint8Array,
-  vkey: VKey,
-}
-
-export type ArtifactList = ${typeString};
-
-declare const artifactsList: ArtifactList;
-
-export = artifactsList;
-`;
-
-  console.log("\nWriting exports files...");
-  fs.writeFileSync(
-    `${__dirname}/module/index.js`,
-    `${requiresString}\n\n${exportString}\n`
+  console.log("\nWriting artifacts list file");
+  await fs.writeFile(
+    `${__dirname}/module/artifacts.json`,
+    JSON.stringify(circuits, null, 2)
   );
 
-  console.log("\nWriting types...");
-  fs.writeFileSync(`${__dirname}/module/index.d.ts`, typings);
-
-  console.log("\nCopying package.json files...");
-  fs.copyFileSync(
-    `${__dirname}/package-npm-template.json`,
+  console.log("\nCopying package.json, index.js, index.d.ts");
+  await fs.copyFile(
+    `${__dirname}/template/package.json`,
     `${__dirname}/module/package.json`
+  );
+  await fs.copyFile(
+    `${__dirname}/template/index.js`,
+    `${__dirname}/module/index.js`
+  );
+  await fs.copyFile(
+    `${__dirname}/template/index.d.ts`,
+    `${__dirname}/module/index.d.ts`
   );
 
   process.exit();
