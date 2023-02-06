@@ -24,11 +24,20 @@ function getArtifact(nullifiers, commitments) {
   return cache[nullifiers][commitments];
 }
 
+function getVKey(nullifiers, commitments) {
+  if (!cache[nullifiers] || !cache[nullifiers][commitments]) {
+    return require(`${__dirname}/${nullifiers}x${commitments}/vkey`);
+  }
+
+  return cache[nullifiers][commitments].vkey;
+}
+
 function listArtifacts() {
   return artifacts;
 }
 
 module.exports = {
   getArtifact,
+  getVKey,
   listArtifacts,
 };
