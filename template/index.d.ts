@@ -13,13 +13,13 @@ export interface VKey {
   IC: string[][];
 }
 
-declare interface Artifact {
+export interface Artifact {
   zkey: Uint8Array;
   wasm: Uint8Array;
   vkey: VKey;
 }
 
-declare interface ArtifactConfig {
+export interface ArtifactConfig {
   nullifiers: number;
   commitments: number;
 }
