@@ -105,6 +105,9 @@ async function main() {
   });
 
   console.log("\nPROCESSING CIRCUITS");
+  await fs.mkdir(`${__dirname}/build/prover`);
+  await fs.mkdir(`${__dirname}/build/prover/snarkjs`);
+  await fs.mkdir(`${__dirname}/build/prover/native`);
   const vKeys = [];
   for (let i = 0; i < circuits.length; i += 1) {
     console.log(
@@ -140,6 +143,22 @@ async function main() {
     );
 
     console.log(
+      `Copying snarkjs wasm for ${circuits[i].nullifiers}x${circuits[i].commitments}`
+    );
+    await fs.copyFile(
+      `${__dirname}/circom_output/joinsplit_${circuits[i].nullifiers}x${circuits[i].commitments}_js/joinsplit_${circuits[i].nullifiers}x${circuits[i].commitments}.wasm`,
+      `${__dirname}/build/prover/snarkjs/${circuits[i].nullifiers}x${circuits[i].commitments}.wasm`
+    );
+
+    console.log(
+      `Copying native dat for ${circuits[i].nullifiers}x${circuits[i].commitments}`
+    );
+    await fs.copyFile(
+      `${__dirname}/circom_output/joinsplit_${circuits[i].nullifiers}x${circuits[i].commitments}_cpp/joinsplit_${circuits[i].nullifiers}x${circuits[i].commitments}.dat`,
+      `${__dirname}/build/prover/native/${circuits[i].nullifiers}x${circuits[i].commitments}.dat`
+    );
+
+    console.log(
       `Compressing artifacts for ${circuits[i].nullifiers}x${circuits[i].commitments}`
     );
     await fs.writeFile(
@@ -159,6 +178,28 @@ async function main() {
         brotli.compress(
           await fs.readFile(
             `${__dirname}/build/${circuits[i].nullifiers}x${circuits[i].commitments}/r1cs`
+          ),
+          { quality: compressionQuality }
+        )
+      )
+    );
+    await fs.writeFile(
+      `${__dirname}/build/prover/snarkjs/${circuits[i].nullifiers}x${circuits[i].commitments}.wasm.br`,
+      Buffer.from(
+        brotli.compress(
+          await fs.readFile(
+            `${__dirname}/build/prover/snarkjs/${circuits[i].nullifiers}x${circuits[i].commitments}.wasm`
+          ),
+          { quality: compressionQuality }
+        )
+      )
+    );
+    await fs.writeFile(
+      `${__dirname}/build/prover/native/${circuits[i].nullifiers}x${circuits[i].commitments}.dat.br`,
+      Buffer.from(
+        brotli.compress(
+          await fs.readFile(
+            `${__dirname}/build/prover/native/${circuits[i].nullifiers}x${circuits[i].commitments}.dat`
           ),
           { quality: compressionQuality }
         )
@@ -211,6 +252,26 @@ async function main() {
       });
     });
 
+    const proverFiles = [
+      "snarkjs/{{}}.wasm",
+      "snarkjs/{{}}.wasm.br",
+      "native/{{}}.dat",
+      "native/{{}}.dat.br",
+    ];
+
+    proverFiles.forEach((file) => {
+      const fileAdjusted = file.replace(
+        "{{}}",
+        `${circuits[i].nullifiers}x${circuits[i].commitments}`
+      );
+
+      allFiles.push({
+        path: `prover/${fileAdjusted}`,
+        content: fs.readFileSync(`${__dirname}/build/prover/${fileAdjusted}`),
+        mtime: new Date(0),
+      });
+    });
+
     let lastEntry = {};
     for await (const entry of ipfs.addAll(artifactFiles, {
       wrapWithDirectory: true,
@@ -222,15 +283,6 @@ async function main() {
     console.log("");
   }
 
-  console.log("Adding parent folder to IPFS");
-  let lastEntry = {};
-  for await (const entry of ipfs.addAll(allFiles, {
-    wrapWithDirectory: true,
-  })) {
-    lastEntry = entry;
-  }
-  console.log(`Parent Folder: ${lastEntry.cid.toString()} (pin this)`);
-
   console.log("\nWRITING DEPLOYMENT CONFIG");
   const deploymentConfig = circuits.map((circuit, i) => ({
     nullifiers: circuit.nullifiers,
@@ -241,19 +293,6 @@ async function main() {
     `${__dirname}/build/deploymentConfig.json`,
     JSON.stringify(deploymentConfig, null, 2)
   );
-
-  if (!(await fs.exists(`${__dirname}/circom_output`))) {
-    console.log(
-      "Circom artifacts not found, exiting after building IPFS files"
-    );
-    console.log(
-      "To build additional modules place the circom compiler output in ./circom_output"
-    );
-    console.log(
-      "Running 'circom $FILE --wasm' on each circuit will generate these"
-    );
-    process.exit();
-  }
 
   console.log("\nBUILDING NPM PACKAGE");
 
@@ -279,17 +318,10 @@ async function main() {
       `${__dirname}/module/${circuits[i].nullifiers}x${circuits[i].commitments}/zkey.br`
     );
 
-    console.log("Compressing and copying WASM");
-    await fs.writeFile(
-      `${__dirname}/module/${circuits[i].nullifiers}x${circuits[i].commitments}/wasm.br`,
-      Buffer.from(
-        brotli.compress(
-          await fs.readFile(
-            `${__dirname}/circom_output/joinsplit_${circuits[i].nullifiers}x${circuits[i].commitments}_js/joinsplit_${circuits[i].nullifiers}x${circuits[i].commitments}.wasm`
-          ),
-          { quality: compressionQuality }
-        )
-      )
+    console.log("Copying WASM");
+    await fs.copyFile(
+      `${__dirname}/build/prover/snarkjs/${circuits[i].nullifiers}x${circuits[i].commitments}.wasm.br`,
+      `${__dirname}/module/${circuits[i].nullifiers}x${circuits[i].commitments}/wasm.br`
     );
   }
 
@@ -312,6 +344,17 @@ async function main() {
     `${__dirname}/template/index.d.ts`,
     `${__dirname}/module/index.d.ts`
   );
+
+  console.log(allFiles);
+
+  console.log("ADDING PARENT FOLDER TO IPFS");
+  let lastEntry = {};
+  for await (const entry of ipfs.addAll(allFiles, {
+    wrapWithDirectory: true,
+  })) {
+    lastEntry = entry;
+  }
+  console.log(`Parent Folder: ${lastEntry.cid.toString()} (pin this)`);
 
   process.exit();
 }
