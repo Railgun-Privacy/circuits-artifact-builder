@@ -6,4 +6,5 @@ package-lock.json
 # Project
 build/
 module/
+module_native/
 circom_output/

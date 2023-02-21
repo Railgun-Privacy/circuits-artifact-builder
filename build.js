@@ -79,9 +79,11 @@ async function main() {
   console.log("Deleting old build directories...");
   await fs.remove(`${__dirname}/build`);
   await fs.remove(`${__dirname}/module`);
+  await fs.remove(`${__dirname}/module_native`);
   console.log("Creating fresh build directories...");
   await fs.mkdir(`${__dirname}/build`);
   await fs.mkdir(`${__dirname}/module`);
+  await fs.mkdir(`${__dirname}/module_native`);
 
   console.log("\nREADING CIRCUITS");
   const r1csFiles = [];
@@ -294,7 +296,7 @@ async function main() {
     JSON.stringify(deploymentConfig, null, 2)
   );
 
-  console.log("\nBUILDING NPM PACKAGE");
+  console.log("\nBUILDING NPM PACKAGES");
 
   for (let i = 0; i < circuits.length; i += 1) {
     console.log(
@@ -305,11 +307,18 @@ async function main() {
     await fs.mkdir(
       `${__dirname}/module/${circuits[i].nullifiers}x${circuits[i].commitments}`
     );
+    await fs.mkdir(
+      `${__dirname}/module_native/${circuits[i].nullifiers}x${circuits[i].commitments}`
+    );
 
     console.log("Copying vkey");
     await fs.copyFile(
       `${__dirname}/build/${circuits[i].nullifiers}x${circuits[i].commitments}/vkey.json`,
       `${__dirname}/module/${circuits[i].nullifiers}x${circuits[i].commitments}/vkey.json`
+    );
+    await fs.copyFile(
+      `${__dirname}/build/${circuits[i].nullifiers}x${circuits[i].commitments}/vkey.json`,
+      `${__dirname}/module_native/${circuits[i].nullifiers}x${circuits[i].commitments}/vkey.json`
     );
 
     console.log("Copying zkey");
@@ -317,11 +326,21 @@ async function main() {
       `${__dirname}/build/${circuits[i].nullifiers}x${circuits[i].commitments}/zkey.br`,
       `${__dirname}/module/${circuits[i].nullifiers}x${circuits[i].commitments}/zkey.br`
     );
+    await fs.copyFile(
+      `${__dirname}/build/${circuits[i].nullifiers}x${circuits[i].commitments}/zkey.br`,
+      `${__dirname}/module_native/${circuits[i].nullifiers}x${circuits[i].commitments}/zkey.br`
+    );
 
     console.log("Copying WASM");
     await fs.copyFile(
       `${__dirname}/build/prover/snarkjs/${circuits[i].nullifiers}x${circuits[i].commitments}.wasm.br`,
       `${__dirname}/module/${circuits[i].nullifiers}x${circuits[i].commitments}/wasm.br`
+    );
+
+    console.log("Copying Native DAT");
+    await fs.copyFile(
+      `${__dirname}/build/prover/native/${circuits[i].nullifiers}x${circuits[i].commitments}.dat.br`,
+      `${__dirname}/module_native/${circuits[i].nullifiers}x${circuits[i].commitments}/dat.br`
     );
   }
 
@@ -344,8 +363,18 @@ async function main() {
     `${__dirname}/template/index.d.ts`,
     `${__dirname}/module/index.d.ts`
   );
-
-  console.log(allFiles);
+  await fs.copyFile(
+    `${__dirname}/template_native/package.json`,
+    `${__dirname}/module_native/package.json`
+  );
+  await fs.copyFile(
+    `${__dirname}/template_native/index.js`,
+    `${__dirname}/module_native/index.js`
+  );
+  await fs.copyFile(
+    `${__dirname}/template_native/index.d.ts`,
+    `${__dirname}/module_native/index.d.ts`
+  );
 
   console.log("ADDING PARENT FOLDER TO IPFS");
   let lastEntry = {};
