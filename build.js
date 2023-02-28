@@ -349,6 +349,10 @@ async function main() {
     `${__dirname}/module/artifacts.json`,
     JSON.stringify(circuits, null, 2)
   );
+  await fs.writeFile(
+    `${__dirname}/module_native/artifacts.json`,
+    JSON.stringify(circuits, null, 2)
+  );
 
   console.log("\nCopying package.json, index.js, index.d.ts");
   await fs.copyFile(
